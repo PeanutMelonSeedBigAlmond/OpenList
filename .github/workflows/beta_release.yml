@@ -38,6 +38,12 @@ jobs:
         run: |
           git tag -l
           npx changelogithub --output CHANGELOG.md
+          if [ "$(wc -c < CHANGELOG.md)" -gt 120000 ]; then
+            echo "::warning::CHANGELOG.md 超过长度限制，已截断"
+            head -c 120000 CHANGELOG.md > CHANGELOG.md.tmp
+            mv CHANGELOG.md.tmp CHANGELOG.md
+            printf '\n\n---\n\n> 完整记录见 Actions Artifact。\n' >> CHANGELOG.md
+          fi
 
       - name: Upload assets to beta release
         env:
