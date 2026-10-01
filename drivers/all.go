@@ -25,6 +25,7 @@ import (
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/bunny_storage"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/chaoxing"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/chunk"
+	_ "github.com/OpenListTeam/OpenList/v4/drivers/chunk2"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/cloudflare_imgbed"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/cloudreve"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/cloudreve_v4"
