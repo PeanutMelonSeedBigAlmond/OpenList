@@ -10,7 +10,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -218,30 +217,26 @@ func (d *ChaoXing) Remove(ctx context.Context, obj model.Obj) error {
 
 func (d *ChaoXing) Put(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress) error {
 	var resp UploadDataRsp
-	_, err := d.request("https://noteyd.chaoxing.com/pc/files/getUploadConfig", http.MethodGet, func(req *resty.Request) {
+	_, err := d.requestDownload("/pc/files/getYunPanUploadUrl", http.MethodGet, func(req *resty.Request) {
+		req.SetQueryParams(map[string]string{"from": "group", "CrossOrigin": "true"})
 	}, &resp)
 	if err != nil {
 		return err
 	}
-	if resp.Result != 1 {
+	if resp.Result != 1 || resp.Data == "" {
 		return errors.New("get upload data error")
 	}
 	body := bytes.NewBuffer(make([]byte, 0, bytes.MinRead))
 	writer := multipart.NewWriter(body)
+	err = writer.WriteField("name", file.GetName())
+	if err != nil {
+		return err
+	}
 	_, err = writer.CreateFormFile("file", file.GetName())
 	if err != nil {
 		return err
 	}
 	headSize := body.Len()
-	err = writer.WriteField("_token", resp.Msg.Token)
-	if err != nil {
-		return err
-	}
-	err = writer.WriteField("puid", strconv.Itoa(resp.Msg.Puid))
-	if err != nil {
-		fmt.Println("Error writing param2 to request body:", err)
-		return err
-	}
 	err = writer.Close()
 	if err != nil {
 		return err
@@ -256,7 +251,7 @@ func (d *ChaoXing) Put(ctx context.Context, dstDir model.Obj, file model.FileStr
 		UpdateProgress: up,
 	})
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://pan-yz.chaoxing.com/upload", r)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, resp.Data, r)
 	if err != nil {
 		return err
 	}
@@ -277,7 +272,7 @@ func (d *ChaoXing) Put(ctx context.Context, dstDir model.Obj, file model.FileStr
 	if err != nil {
 		return err
 	}
-	if fileRsp.Msg != "success" {
+	if !fileRsp.Result {
 		return errors.New(fileRsp.Msg)
 	}
 	uploadDoneParam := UploadDoneParam{Key: fileRsp.ObjectID, Cataid: "100000019", Param: fileRsp.Data}
@@ -285,21 +280,21 @@ func (d *ChaoXing) Put(ctx context.Context, dstDir model.Obj, file model.FileStr
 	if err != nil {
 		return err
 	}
-	query := map[string]string{
+	form := map[string]string{
 		"bbsid":  d.Addition.Bbsid,
 		"pid":    dstDir.GetID(),
 		"type":   "yunpan",
 		"params": url.QueryEscape("[" + string(params) + "]"),
 	}
 	var respd ListFileResp
-	_, err = d.request("/pc/resource/addResource", http.MethodGet, func(req *resty.Request) {
-		req.SetQueryParams(query)
+	_, err = d.request("/pc/resource/addResource", http.MethodPost, func(req *resty.Request) {
+		req.SetFormData(form)
 	}, &respd)
 	if err != nil {
 		return err
 	}
 	if respd.Result != 1 {
-		msg := fmt.Sprintf("error:%v", resp.Msg)
+		msg := fmt.Sprintf("error:%v", respd.Msg)
 		return errors.New(msg)
 	}
 	return nil
